@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>กราฟฟังก์ชันกำลังสอง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3f7fa; --card:#ffffff; --ink:#14203a; --ink-2:#4a5a72; --ink-3:#7a889c;
+  --line:#d8e2eb; --grid:#e4ecf3; --axis:#14203a; --chip:#eaf0f6;
+  --curve:#1d4ed8; --vertex:#d97706; --root:#0d9373; --yint:#a23fa0; --danger:#b42318;
+  --font:'Sarabun','Noto Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --math:'STIX Two Text',Cambria,Georgia,'Times New Roman',serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0f1623; --card:#161f2f; --ink:#e8eef7; --ink-2:#a9b6c9; --ink-3:#8593a8;
+    --line:#2a3548; --grid:#212c3f; --axis:#e8eef7; --chip:#1d2839;
+    --curve:#6ea0ff; --vertex:#f0a63a; --root:#3ccba5; --yint:#d47bd1; --danger:#ff8f85;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 56px}
+header{margin:0 0 18px}
+h1{font-size:26px;line-height:1.3;margin:0 0 4px;font-weight:700}
+h2{font-size:18px;line-height:1.4;margin:0 0 10px;font-weight:700}
+.sub{margin:0;color:var(--ink-2);font-size:15px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;
+  grid-template-areas:"inputs" "graph" "results" "steps"}
+.inputs{grid-area:inputs}
+.graph{grid-area:graph}
+.results{grid-area:results}
+.steps{grid-area:steps}
+@media (min-width:900px){
+  .layout{grid-template-columns:340px minmax(0,1fr);gap:24px 28px;align-items:start;
+    grid-template-areas:"inputs graph" "results graph" "steps steps"}
+  .steps{max-width:760px}
+}
+
+.eq{font-family:var(--math);font-size:26px;line-height:1.3;margin:0 0 14px;overflow-wrap:anywhere}
+.field{display:grid;grid-template-columns:28px minmax(0,1fr) 46px;gap:8px;align-items:center;margin:0 0 8px}
+.field label{font-family:var(--math);font-style:italic;font-size:22px;text-align:right}
+input[type=number]{width:100%;height:46px;padding:0 12px;border:1px solid var(--line);border-radius:10px;
+  background:var(--card);color:var(--ink);font:inherit;font-size:18px;font-variant-numeric:tabular-nums}
+.sign,.chip{border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font:inherit}
+.sign{height:46px;font-size:18px}
+.sign:active,.chip:active{transform:scale(.97)}
+input:focus-visible,button:focus-visible{outline:2px solid var(--curve);outline-offset:2px}
+.err{color:var(--danger);font-size:14px;margin:4px 0 8px}
+.ex-title{font-size:13px;color:var(--ink-2);margin:14px 0 6px}
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.chip{text-align:left;padding:8px 10px;line-height:1.4}
+.chip b{display:block;font-family:var(--math);font-weight:400;font-size:15px}
+.chip span{font-size:12.5px;color:var(--ink-2)}
+
+.graph{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 10px 14px}
+.stage{position:relative;width:100%;aspect-ratio:8/7;max-height:560px}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:crosshair}
+.readout{margin:10px 6px 4px;font-size:14px;color:var(--ink-2);min-height:22px;font-variant-numeric:tabular-nums}
+.legend{list-style:none;padding:0;margin:6px 6px 0;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.legend li{display:flex;align-items:center;gap:6px}
+
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.tile{background:var(--chip);border-radius:10px;padding:10px 12px;min-width:0}
+.tile.wide{grid-column:1/-1}
+.tile dt{font-size:12.5px;color:var(--ink-2)}
+.tile dd{margin:0;font-size:16.5px;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+.steps ol{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+.steps li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--chip);
+  display:grid;place-items:center;font-weight:500;font-size:14px}
+.steps h3{font-size:16px;margin:0 0 4px;font-weight:700}
+.steps p{margin:0 0 2px;color:var(--ink-2);font-size:15px}
+.steps p.f{font-family:var(--math);color:var(--ink);font-size:17.5px;line-height:1.7;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>กราฟฟังก์ชันกำลังสอง</h1>
+    <p class="sub">ใส่ค่า a, b, c ของสมการ y = ax² + bx + c แล้วดูกราฟกับวิธีทำได้ทันที</p>
+  </header>
+
+  <main class="layout">
+    <section class="inputs" aria-label="ใส่ค่าตัวแปร">
+      <p class="eq" id="eq" aria-live="polite"></p>
+      <div class="field"><label for="a">a</label>
+        <input id="a" type="number" step="any" value="1" autocomplete="off">
+        <button type="button" class="sign" data-t="a" aria-label="สลับเครื่องหมายบวกลบของ a">±</button></div>
+      <div class="field"><label for="b">b</label>
+        <input id="b" type="number" step="any" value="-4" autocomplete="off">
+        <button type="button" class="sign" data-t="b" aria-label="สลับเครื่องหมายบวกลบของ b">±</button></div>
+      <div class="field"><label for="c">c</label>
+        <input id="c" type="number" step="any" value="3" autocomplete="off">
+        <button type="button" class="sign" data-t="c" aria-label="สลับเครื่องหมายบวกลบของ c">±</button></div>
+      <p class="err" id="err" role="alert" hidden></p>
+      <p class="ex-title">ลองตัวอย่าง</p>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <section class="graph" aria-label="กราฟ">
+      <div class="stage" id="stage">
+        <canvas id="cv" role="img" aria-label="กราฟพาราโบลา">กราฟของฟังก์ชันกำลังสอง</canvas>
+      </div>
+      <p class="readout" id="readout"></p>
+      <ul class="legend">
+        <li><svg width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0-6L6 0 0 6-6 0Z" fill="var(--vertex)"/></svg>จุดยอด</li>
+        <li><svg width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><circle r="5" fill="var(--root)"/></svg>ราก (ตัดแกน x)</li>
+        <li><svg width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0-6L6 5-6 5Z" fill="var(--yint)"/></svg>ตัดแกน y</li>
+        <li><svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><line x1="8" y1="0" x2="8" y2="14" stroke="var(--vertex)" stroke-width="1.5" stroke-dasharray="3 3"/></svg>แกนสมมาตร</li>
+        <li><svg width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><circle r="4" fill="var(--card)" stroke="var(--axis)" stroke-width="2"/></svg>O = จุดกำเนิด (0, 0)</li>
+      </ul>
+    </section>
+
+    <section class="results" aria-labelledby="t-res">
+      <h2 id="t-res">ผลลัพธ์</h2>
+      <dl class="tiles">
+        <div class="tile"><dt>ทิศทางกราฟ</dt><dd id="r-dir"></dd></div>
+        <div class="tile"><dt>ดิสคริมิแนนต์ (D)</dt><dd id="r-d"></dd></div>
+        <div class="tile"><dt>จุดยอด</dt><dd id="r-vertex"></dd></div>
+        <div class="tile"><dt>แกนสมมาตร</dt><dd id="r-axis"></dd></div>
+        <div class="tile wide"><dt>ราก (จุดตัดแกน x)</dt><dd id="r-roots"></dd></div>
+        <div class="tile"><dt>จุดตัดแกน y</dt><dd id="r-yint"></dd></div>
+        <div class="tile"><dt>ค่าสูงสุด/ต่ำสุด</dt><dd id="r-ext"></dd></div>
+        <div class="tile wide"><dt>รูปจุดยอด</dt><dd id="r-vform"></dd></div>
+      </dl>
+    </section>
+
+    <section class="steps" aria-labelledby="t-steps">
+      <h2 id="t-steps">ขั้นตอนการแก้สมการ</h2>
+      <ol id="steps"></ol>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MINUS = '\u2212';
+  var HINT = 'แตะหรือลากบนกราฟเพื่อดูค่า x และ y';
+  var FONT = "Sarabun, 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif";
+  var MATH = "'STIX Two Text', Cambria, Georgia, 'Times New Roman', serif";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- number and text helpers ---------- */
+
+  function fmt(n) {
+    if (Math.abs(n) < 1e-9) n = 0;
+    var r = Math.round(n * 10000) / 10000;
+    if (r === 0) r = 0;
+    return String(r).replace('-', MINUS);
+  }
+  function p(n) { return n < 0 ? '(' + fmt(n) + ')' : fmt(n); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function polyText(a, b, c) {
+    var out = '';
+    [[a, 'x²'], [b, 'x'], [c, '']].forEach(function (t) {
+      var co = t[0], v = t[1];
+      if (co === 0) return;
+      var abs = Math.abs(co);
+      var body = (abs === 1 && v) ? v : fmt(abs) + v;
+      if (!out) out = (co < 0 ? MINUS : '') + body;
+      else out += ' ' + (co < 0 ? MINUS : '+') + ' ' + body;
+    });
+    return 'y = ' + (out || '0');
+  }
+
+  function xTerm(r) {
+    if (Math.abs(r) < 1e-9) return 'x';
+    return '(x ' + (r > 0 ? MINUS : '+') + ' ' + fmt(Math.abs(r)) + ')';
+  }
+  function coefText(a) { return a === 1 ? '' : a === -1 ? MINUS : fmt(a); }
+
+  function vertexForm(m) {
+    var inner = Math.abs(m.h) < 1e-9 ? 'x' : 'x ' + (m.h > 0 ? MINUS : '+') + ' ' + fmt(Math.abs(m.h));
+    var sq = inner === 'x' ? 'x²' : '(' + inner + ')²';
+    var kv = Math.abs(m.k) < 1e-9 ? '' : ' ' + (m.k < 0 ? MINUS : '+') + ' ' + fmt(Math.abs(m.k));
+    return 'y = ' + coefText(m.a) + sq + kv;
+  }
+  function factorForm(m) {
+    if (m.D > 0) return 'y = ' + coefText(m.a) + xTerm(m.roots[0]) + xTerm(m.roots[1]);
+    var t = xTerm(m.roots[0]);
+    return 'y = ' + coefText(m.a) + (t === 'x' ? 'x²' : t + '²');
+  }
+
+  /* ---------- the math ---------- */
+
+  function analyze(a, b, c) {
+    var D = b * b - 4 * a * c;
+    if (Math.abs(D) <= 1e-12 * Math.max(b * b, Math.abs(4 * a * c), 1)) D = 0;
+    var h = -b / (2 * a);
+    var k = c - (b * b) / (4 * a);
+    var roots = [];
+    if (D > 0) {
+      var s = Math.sqrt(D);
+      roots = [(-b - s) / (2 * a), (-b + s) / (2 * a)].sort(function (x, y) { return x - y; });
+    } else if (D === 0) {
+      roots = [h];
+    }
+    return { a: a, b: b, c: c, D: D, h: h, k: k, roots: roots };
+  }
+
+  // Always keep the origin (0, 0) inside the view so both axes are visible.
+  function pad(lo, hi) {
+    var r = hi - lo;
+    if (r < 1e-9) r = 2;
+    lo -= r * 0.14; hi += r * 0.14;
+    var r2 = hi - lo;
+    if (lo > -0.1 * r2) lo = -0.1 * r2;
+    if (hi < 0.1 * r2) hi = 0.1 * r2;
+    return [lo, hi];
+  }
+  function makeView(m) {
+    var fy = [0, m.k, m.c];
+    var ylo = Math.min.apply(null, fy), yhi = Math.max.apply(null, fy);
+    var reach = Math.max((yhi - ylo) * 1.3, 2);
+    if (m.a > 0) yhi = Math.max(yhi, m.k + reach); else ylo = Math.min(ylo, m.k - reach);
+    var cap = m.a > 0 ? yhi : ylo;
+    var dx = Math.sqrt(Math.max((cap - m.k) / m.a, 0));
+    var xs = [0, m.h, m.h - dx, m.h + dx].concat(m.roots);
+    var px = pad(Math.min.apply(null, xs), Math.max.apply(null, xs));
+    var py = pad(ylo, yhi);
+    return { xmin: px[0], xmax: px[1], ymin: py[0], ymax: py[1] };
+  }
+
+  function niceStep(range, target) {
+    var raw = range / Math.max(target, 2);
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var n = raw / mag;
+    return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+  }
+  function tickLabel(v, step) {
+    var d = Math.min(6, Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)));
+    if (Math.abs(v) < step * 1e-6) v = 0;
+    return v.toFixed(d).replace('-', MINUS);
+  }
+
+  /* ---------- drawing ---------- */
+
+  var state = { m: null, view: null, hoverX: null, W: 0, H: 0, dpr: 1 };
+  var cv = $('cv'), ctx = cv.getContext('2d');
+  var cssRoot = document.documentElement;
+  function css(n) { return getComputedStyle(cssRoot).getPropertyValue(n).trim(); }
+
+  function resize() {
+    var r = $('stage').getBoundingClientRect();
+    var w = Math.round(r.width), h = Math.round(r.height);
+    if (!w || !h) return;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    state.W = w; state.H = h; state.dpr = dpr;
+    draw();
+  }
+
+  function draw() {
+    var m = state.m, v = state.view, W = state.W, H = state.H;
+    if (!m || !v || !W || !H) return;
+    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    var col = {
+      card: css('--card'), ink2: css('--ink-2'), ink3: css('--ink-3'), grid: css('--grid'), axis: css('--axis'),
+      curve: css('--curve'), vertex: css('--vertex'), root: css('--root'), yint: css('--yint')
+    };
+    var L = 6, T = 6, R = W - 6, B = H - 6;
+    var X = function (x) { return L + (x - v.xmin) / (v.xmax - v.xmin) * (R - L); };
+    var Y = function (y) { return B - (y - v.ymin) / (v.ymax - v.ymin) * (B - T); };
+    var ox = X(0), oy = Y(0);
+    var sx = niceStep(v.xmax - v.xmin, W / 62), sy = niceStep(v.ymax - v.ymin, H / 52);
+    var boxes = [];
+
+    function overlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+    function rectFor(str, x, y, align) {
+      var w = ctx.measureText(str).width;
+      var x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+      return { x: x0 - 2, y: y - 12, w: w + 4, h: 15 };
+    }
+    function put(str, x, y, align, color, font) {
+      ctx.font = font; ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = col.card;
+      ctx.strokeText(str, x, y);
+      ctx.fillStyle = color; ctx.fillText(str, x, y);
+      boxes.push(rectFor(str, x, y, align));
+    }
+    // Put a label near a point without covering other labels.
+    function place(str, px, py, color, font, cands) {
+      ctx.font = font;
+      var w = ctx.measureText(str).width;
+      var list = cands ? cands(w) : [[10, -10], [10, 18], [-10 - w, -10], [-10 - w, 18], [-w / 2, -16], [-w / 2, 26]];
+      var pick = null;
+      for (var i = 0; i < list.length && !pick; i++) {
+        var bx = px + list[i][0], by = py + list[i][1];
+        var r = { x: bx - 2, y: by - 12, w: w + 4, h: 15 };
+        if (r.x < 2 || r.x + r.w > W - 2 || r.y < 2 || r.y + r.h > H - 2) continue;
+        if (boxes.some(function (o) { return overlap(r, o); })) continue;
+        pick = [bx, by];
+      }
+      if (!pick) {
+        pick = [Math.min(Math.max(px + list[0][0], 4), W - w - 4), Math.min(Math.max(py + list[0][1], 14), H - 6)];
+      }
+      put(str, pick[0], pick[1], 'left', color, font);
+    }
+
+    // 1) grid
+    ctx.lineWidth = 1; ctx.strokeStyle = col.grid;
+    ctx.beginPath();
+    var i;
+    for (i = Math.ceil(v.xmin / sx); i * sx <= v.xmax + 1e-9; i++) {
+      if (i === 0) continue;
+      var gx = Math.round(X(i * sx)) + 0.5;
+      ctx.moveTo(gx, T); ctx.lineTo(gx, B);
+    }
+    for (i = Math.ceil(v.ymin / sy); i * sy <= v.ymax + 1e-9; i++) {
+      if (i === 0) continue;
+      var gy = Math.round(Y(i * sy)) + 0.5;
+      ctx.moveTo(L, gy); ctx.lineTo(R, gy);
+    }
+    ctx.stroke();
+
+    // 2) axis of symmetry
+    var hasSym = Math.abs(m.h) > 1e-9;
+    if (hasSym) {
+      ctx.setLineDash([6, 5]); ctx.strokeStyle = col.vertex; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(X(m.h), T); ctx.lineTo(X(m.h), B); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 3) x-axis and y-axis: they cross exactly at the origin (0, 0)
+    ctx.strokeStyle = col.axis; ctx.fillStyle = col.axis; ctx.lineWidth = 1.7; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(L, oy); ctx.lineTo(R, oy); ctx.moveTo(ox, B); ctx.lineTo(ox, T); ctx.stroke();
+    function arrow(x, y, dx, dy) {
+      var s = 9, bx = x - dx * s, by = y - dy * s, nx = -dy, ny = dx;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      ctx.lineTo(bx + nx * s * 0.42, by + ny * s * 0.42);
+      ctx.lineTo(bx - nx * s * 0.42, by - ny * s * 0.42);
+      ctx.closePath(); ctx.fill();
+    }
+    arrow(R, oy, 1, 0); arrow(ox, T, 0, -1);
+
+    var tickFont = '11.5px ' + FONT;
+    ctx.lineWidth = 1.2;
+    ctx.font = tickFont;
+    for (i = Math.ceil(v.xmin / sx); i * sx <= v.xmax + 1e-9; i++) {
+      if (i === 0) continue;
+      var tx = X(i * sx);
+      ctx.strokeStyle = col.axis; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(tx, oy - 4); ctx.lineTo(tx, oy + 4); ctx.stroke();
+      var ls = tickLabel(i * sx, sx), lw = ctx.measureText(ls).width;
+      if (tx - lw / 2 < 3 || tx + lw / 2 > W - 3) continue;
+      put(ls, tx, (oy + 17 <= B) ? oy + 17 : oy - 8, 'center', col.ink2, tickFont);
+    }
+    for (i = Math.ceil(v.ymin / sy); i * sy <= v.ymax + 1e-9; i++) {
+      if (i === 0) continue;
+      var ty = Y(i * sy);
+      if (ty < T + 8 || ty > B - 4) continue;
+      ctx.strokeStyle = col.axis; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(ox - 4, ty); ctx.lineTo(ox + 4, ty); ctx.stroke();
+      var ys = tickLabel(i * sy, sy), yw = ctx.measureText(ys).width;
+      var onLeft = ox - 8 - yw >= 3;
+      put(ys, onLeft ? ox - 8 : ox + 8, ty + 4, onLeft ? 'right' : 'left', col.ink2, tickFont);
+    }
+    var nameFont = 'italic 17px ' + MATH;
+    put('x', R - 4, oy - 10 >= T + 12 ? oy - 10 : oy + 22, 'right', col.axis, nameFont);
+    var yOnRight = ox + 26 < R;
+    put('y', yOnRight ? ox + 12 : ox - 12, T + 15, yOnRight ? 'left' : 'right', col.axis, nameFont);
+    ctx.font = 'italic 13px ' + FONT;
+    var oLeft = ox - 9 - ctx.measureText('O').width >= 3;
+    put('O', oLeft ? ox - 9 : ox + 9, (oy + 18 <= B) ? oy + 18 : oy - 9, oLeft ? 'right' : 'left', col.axis, '500 13.5px ' + FONT);
+
+    // 4) the parabola
+    ctx.save();
+    ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
+    ctx.strokeStyle = col.curve; ctx.lineWidth = 2.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    var n = Math.ceil((R - L) / 1.5);
+    for (i = 0; i <= n; i++) {
+      var x = v.xmin + (v.xmax - v.xmin) * i / n;
+      var y = m.a * x * x + m.b * x + m.c;
+      var py = Math.max(-5e4, Math.min(5e4, Y(y)));
+      if (i) ctx.lineTo(X(x), py); else ctx.moveTo(X(x), py);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // 5) markers: origin first, then the special points on top
+    ctx.lineWidth = 2; ctx.strokeStyle = col.axis; ctx.fillStyle = col.card;
+    ctx.beginPath(); ctx.arc(ox, oy, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    var pts = [{ k: 'v', x: m.h, y: m.k, t: 'จุดยอด (' + fmt(m.h) + ', ' + fmt(m.k) + ')' }];
+    m.roots.forEach(function (r) { pts.push({ k: 'r', x: r, y: 0, t: '(' + fmt(r) + ', 0)' }); });
+    pts.push({ k: 'y', x: 0, y: m.c, t: '(0, ' + fmt(m.c) + ')' });
+
+    ctx.lineWidth = 2; ctx.strokeStyle = col.card;
+    pts.slice().reverse().forEach(function (q) {
+      var qx = X(q.x), qy = Y(q.y);
+      if (qx < L - 1 || qx > R + 1 || qy < T - 1 || qy > B + 1) return;
+      ctx.beginPath();
+      if (q.k === 'v') {
+        ctx.fillStyle = col.vertex;
+        ctx.moveTo(qx, qy - 8); ctx.lineTo(qx + 8, qy); ctx.lineTo(qx, qy + 8); ctx.lineTo(qx - 8, qy); ctx.closePath();
+      } else if (q.k === 'r') {
+        ctx.fillStyle = col.root; ctx.arc(qx, qy, 6, 0, Math.PI * 2);
+      } else {
+        ctx.fillStyle = col.yint;
+        ctx.moveTo(qx, qy - 7.5); ctx.lineTo(qx + 7, qy + 6); ctx.lineTo(qx - 7, qy + 6); ctx.closePath();
+      }
+      ctx.fill(); ctx.stroke();
+    });
+
+    // 6) labels for the special points (skip a label if another point sits on the same spot)
+    var shown = [];
+    var labelFont = '500 12.5px ' + FONT;
+    pts.forEach(function (q) {
+      var qx = X(q.x), qy = Y(q.y);
+      if (qx < L - 1 || qx > R + 1 || qy < T - 1 || qy > B + 1) return;
+      if (shown.some(function (s) { return Math.abs(s[0] - qx) < 4 && Math.abs(s[1] - qy) < 4; })) return;
+      shown.push([qx, qy]);
+      var color = q.k === 'v' ? col.vertex : q.k === 'r' ? col.root : col.yint;
+      place(q.t, qx, qy, color, labelFont);
+    });
+    if (hasSym) {
+      place('x = ' + fmt(m.h), X(m.h), T + 2, col.vertex, labelFont, function (w) {
+        return [[6, 14], [-6 - w, 14], [6, 32], [-6 - w, 32]];
+      });
+    }
+
+    // 7) hover crosshair
+    if (state.hoverX !== null) {
+      var hx = state.hoverX, hy = m.a * hx * hx + m.b * hx + m.c;
+      ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.strokeStyle = col.ink3;
+      ctx.beginPath(); ctx.moveTo(X(hx), T); ctx.lineTo(X(hx), B); ctx.stroke();
+      ctx.setLineDash([]);
+      var hpy = Y(hy);
+      if (hpy >= T && hpy <= B) {
+        ctx.beginPath(); ctx.arc(X(hx), hpy, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = col.curve; ctx.strokeStyle = col.card; ctx.lineWidth = 2;
+        ctx.fill(); ctx.stroke();
+      }
+    }
+  }
+
+  function setHover(e) {
+    var m = state.m, v = state.view;
+    if (!m || !v || !state.W) return;
+    var r = cv.getBoundingClientRect();
+    var L = 6, R = state.W - 6;
+    var t = (e.clientX - r.left - L) / (R - L);
+    t = Math.max(0, Math.min(1, t));
+    var x = v.xmin + t * (v.xmax - v.xmin);
+    state.hoverX = x;
+    $('readout').textContent = 'เมื่อ x = ' + fmt(x) + ' จะได้ y = ' + fmt(m.a * x * x + m.b * x + m.c);
+    draw();
+  }
+  function clearHover() {
+    state.hoverX = null;
+    $('readout').textContent = HINT;
+    draw();
+  }
+  cv.addEventListener('pointerdown', setHover);
+  cv.addEventListener('pointermove', setHover);
+  cv.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') clearHover(); });
+  cv.addEventListener('pointercancel', function (e) { if (e.pointerType === 'mouse') clearHover(); });
+
+  /* ---------- results and worked steps ---------- */
+
+  function T_(s) { return '<p>' + esc(s) + '</p>'; }
+  function F_(s) { return '<p class="f">' + esc(s) + '</p>'; }
+
+  function stepsHTML(m) {
+    var a = m.a, b = m.b, c = m.c, D = m.D, h = m.h, k = m.k;
+    var S = [];
+
+    S.push(['ระบุค่า a, b, c',
+      F_('a = ' + fmt(a) + ',  b = ' + fmt(b) + ',  c = ' + fmt(c)) +
+      T_('เพราะ a ' + (a > 0 ? '> 0' : '< 0') + ' พาราโบลาจึง' + (a > 0 ? 'หงายขึ้น (เปิดขึ้น) และมีจุดต่ำสุดที่จุดยอด' : 'คว่ำลง (เปิดลง) และมีจุดสูงสุดที่จุดยอด'))]);
+
+    S.push(['หาค่าดิสคริมิแนนต์ (D)',
+      F_('D = b² ' + MINUS + ' 4ac') +
+      F_('D = ' + p(b) + '² ' + MINUS + ' 4 × ' + p(a) + ' × ' + p(c)) +
+      F_('D = ' + fmt(b * b) + ' ' + MINUS + ' ' + p(4 * a * c) + ' = ' + fmt(D)) +
+      T_(D > 0 ? 'D > 0 จึงมีรากจริง 2 ค่า กราฟตัดแกน x สองจุด' : D === 0 ? 'D = 0 จึงมีรากจริง 1 ค่า (รากซ้ำ) กราฟแตะแกน x หนึ่งจุด' : 'D < 0 จึงไม่มีรากจริง กราฟไม่ตัดแกน x')]);
+
+    S.push(['หาแกนสมมาตร',
+      F_('x = ' + MINUS + 'b / 2a') +
+      F_('x = ' + MINUS + p(b) + ' / (2 × ' + p(a) + ') = ' + fmt(h)) +
+      T_('แกนสมมาตรคือเส้นตรง x = ' + fmt(h))]);
+
+    S.push(['หาจุดยอด',
+      T_('แทน x = ' + fmt(h) + ' ลงในสมการ') +
+      F_('y = ' + p(a) + ' × ' + p(h) + '² + ' + p(b) + ' × ' + p(h) + ' + ' + p(c)) +
+      F_('y = ' + fmt(k)) +
+      T_('จุดยอดคือ (' + fmt(h) + ', ' + fmt(k) + ')') +
+      F_(vertexForm(m))]);
+
+    if (D > 0) {
+      S.push(['หารากของสมการ (สูตรกำลังสอง)',
+        F_('x = (' + MINUS + 'b ± √D) / 2a') +
+        F_('x = (' + fmt(-b) + ' ± √' + fmt(D) + ') / ' + fmt(2 * a)) +
+        F_('x₁ = ' + fmt(m.roots[0]) + ',  x₂ = ' + fmt(m.roots[1])) +
+        T_('เขียนในรูปแยกตัวประกอบได้เป็น') + F_(factorForm(m))]);
+    } else if (D === 0) {
+      S.push(['หารากของสมการ',
+        T_('เพราะ D = 0 จึงมีรากเดียว') +
+        F_('x = ' + MINUS + 'b / 2a = ' + fmt(h)) +
+        T_('รูปแยกตัวประกอบ') + F_(factorForm(m))]);
+    } else {
+      S.push(['หารากของสมการ',
+        T_('เพราะ D < 0 จึงไม่มีรากที่เป็นจำนวนจริง') +
+        T_('กราฟอยู่เหนือแกน x ทั้งหมด หรืออยู่ใต้แกน x ทั้งหมด')]);
+    }
+
+    S.push(['หาจุดตัดแกน y',
+      T_('แทน x = 0') + F_('y = c = ' + fmt(c)) + T_('กราฟตัดแกน y ที่ (0, ' + fmt(c) + ')')]);
+
+    S.push(['ตรวจจุดกำเนิด O (0, 0)',
+      T_('แกน x และแกน y ตัดกันที่จุดกำเนิด O (0, 0) พอดี') +
+      T_(c === 0 ? 'เพราะ c = 0 กราฟนี้จึงผ่านจุดกำเนิดด้วย' : 'เพราะ c ≠ 0 กราฟนี้จึงไม่ผ่านจุดกำเนิด')]);
+
+    return S.map(function (s) { return '<li><div><h3>' + esc(s[0]) + '</h3>' + s[1] + '</div></li>'; }).join('');
+  }
+
+  function fillResults(m) {
+    var a = m.a, D = m.D;
+    $('r-dir').textContent = a > 0 ? 'หงายขึ้น' : 'คว่ำลง';
+    $('r-d').textContent = fmt(D);
+    $('r-vertex').textContent = '(' + fmt(m.h) + ', ' + fmt(m.k) + ')';
+    $('r-axis').textContent = 'x = ' + fmt(m.h);
+    $('r-roots').textContent = D > 0 ? 'x = ' + fmt(m.roots[0]) + ' และ x = ' + fmt(m.roots[1])
+      : D === 0 ? 'x = ' + fmt(m.roots[0]) + ' (รากซ้ำ)' : 'ไม่มีรากจริง';
+    $('r-yint').textContent = '(0, ' + fmt(m.c) + ')';
+    $('r-ext').textContent = (a > 0 ? 'ต่ำสุด y = ' : 'สูงสุด y = ') + fmt(m.k);
+    $('r-vform').textContent = vertexForm(m);
+  }
+
+  /* ---------- wiring ---------- */
+
+  function update() {
+    var a = parseFloat($('a').value), b = parseFloat($('b').value), c = parseFloat($('c').value);
+    var err = $('err');
+    function fail(msg) { err.textContent = msg; err.hidden = false; }
+    if (isNaN(a) || isNaN(b) || isNaN(c)) return fail('กรอกตัวเลขให้ครบทั้ง a, b และ c');
+    if (Math.abs(a) > 1e6 || Math.abs(b) > 1e6 || Math.abs(c) > 1e6) return fail('ใช้ตัวเลขที่มีค่าไม่เกิน 1,000,000');
+    if (a === 0) return fail('ค่า a ต้องไม่เป็น 0 เพราะถ้า a = 0 กราฟจะเป็นเส้นตรง ไม่ใช่พาราโบลา');
+    err.hidden = true;
+
+    var m = analyze(a, b, c);
+    state.m = m;
+    state.view = makeView(m);
+    state.hoverX = null;
+    $('readout').textContent = HINT;
+    $('eq').textContent = polyText(a, b, c);
+    fillResults(m);
+    $('steps').innerHTML = stepsHTML(m);
+    cv.setAttribute('aria-label', 'กราฟพาราโบลา ' + polyText(a, b, c) + ' จุดยอด (' + fmt(m.h) + ', ' + fmt(m.k) + ') ' +
+      (m.D > 0 ? 'ตัดแกน x สองจุด' : m.D === 0 ? 'แตะแกน x หนึ่งจุด' : 'ไม่ตัดแกน x') + ' ตัดแกน y ที่ (0, ' + fmt(c) + ')');
+    draw();
+  }
+
+  ['a', 'b', 'c'].forEach(function (id) { $(id).addEventListener('input', update); });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.sign'), function (btn) {
+    btn.addEventListener('click', function () {
+      var input = $(btn.getAttribute('data-t'));
+      var val = parseFloat(input.value);
+      if (isNaN(val)) val = 0;
+      input.value = val === 0 ? '0' : String(-val);
+      update();
+    });
+  });
+
+  var EXAMPLES = [
+    { abc: [1, -4, 3], note: 'มีราก 2 ค่า' },
+    { abc: [-1, 2, 3], note: 'กราฟคว่ำลง' },
+    { abc: [1, -4, 4], note: 'รากซ้ำ' },
+    { abc: [1, 2, 5], note: 'ไม่มีรากจริง' }
+  ];
+  EXAMPLES.forEach(function (ex) {
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'chip';
+    var b = document.createElement('b'); b.textContent = polyText(ex.abc[0], ex.abc[1], ex.abc[2]).slice(4);
+    var s = document.createElement('span'); s.textContent = ex.note;
+    btn.appendChild(b); btn.appendChild(s);
+    btn.addEventListener('click', function () {
+      $('a').value = ex.abc[0]; $('b').value = ex.abc[1]; $('c').value = ex.abc[2];
+      update();
+    });
+    $('chips').appendChild(btn);
+  });
+
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe($('stage'));
+  window.addEventListener('resize', resize);
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', draw);
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  update();
+  resize();
+})();
+</script>
+</body>
+</html>
